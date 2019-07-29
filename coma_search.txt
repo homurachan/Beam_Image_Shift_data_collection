@@ -1,0 +1,146 @@
+MacroName coma-search
+
+IS_distance = 7
+IS_angle = 30
+IS_step = 18
+
+IS_index_work = 360 / $IS_step
+
+ReportImageShift 
+IS_current_x = $reportedValue1
+IS_current_y = $reportedValue2
+
+i = 1
+Loop $IS_step
+    #----------set IS---------
+    IS_index = $IS_angle + $IS_index_work * $i
+
+    IS_cosx = cos $IS_index
+    IS_siny = sin $IS_index
+
+     IS_angle_x = $IS_distance * $IS_cosx
+     IS_angle_y =  $IS_distance * $IS_siny
+
+     IS_new_x = $IS_angle_x + $IS_current_x
+     IS_new_y = $IS_angle_y + $IS_current_y
+     SetImageShift $IS_new_x $IS_new_y
+    echo angle: $IS_index-----distance: $IS_distance
+    #-------set IS end----------
+ #   CallFunction coma-search::carbon_search
+    CallFunction coma-search::Z_focus
+
+    CallFunction coma-search::stigma_adj
+    CallFunction coma-search::coma_adj
+    CallFunction coma-search::reset_stigma_coma
+    i = $i + 1
+EndLoop 
+
+#-----function carbon_search----
+Function carbon_search
+ScreenDown 
+GoToLowDoseArea R
+Pause move to carbon
+ScreenUp 
+EndFunction 
+
+#-------function Z_focus
+function Z_focus
+target_valuve = -2
+
+Loop 10
+     Autofocus -1
+     reportAutofocus
+    recent_value = $reportedValue1
+
+   if $recent_value < 0.2 AND $recent_value > -0.2
+          move_value = -1
+   Else
+         move_value =  -1 * $recent_value + $target_valuve
+   Endif 
+
+    if $move_value < 0.2 AND $move_value > -0.2
+             echo --> focus error $move_value micron
+             break
+     Endif 
+
+    MoveStage 0 0 $move_value
+    echo --> Z moved $move_value micron 
+
+EndLoop
+endfunction
+
+#--------function stigma_adj--------
+function stigma_adj
+
+ReportObjectiveStigmator 
+OS_ori_X =  $reportedValue1
+OS_ori_Y =  $reportedValue2
+
+Pause Please eliminate obj astigmatism!
+
+ReportObjectiveStigmator 
+adj_obj_stigma_x = $reportedValue1 - $OS_ori_X
+adj_obj_stigma_y = $reportedValue2 - $OS_ori_Y
+
+Pause stigma_X adjusted by $adj_obj_stigma_x
+Pause stigma_Y adjusted by $adj_obj_stigma_y
+
+endfunction
+
+#------function coma_adj----------
+function coma_adj
+wobble = 5
+
+echo beam tilt----- start -----------
+ReportBeamTilt
+current_BT_X = $reportedValue1
+current_BT_Y = $reportedValue2
+echo ori BeamTilt : $current_BT_X $current_BT_Y
+
+New_M_X = $current_BT_X - $wobble
+New_P_X = $current_BT_X + $wobble
+New_M_Y = $current_BT_Y - $wobble
+New_P_Y = $current_BT_Y + $wobble
+
+Delay 5
+EarlyReturnNextShot 0
+T
+
+SetBeamTilt $New_M_X $current_BT_Y
+echo $New_M_X $current_BT_Y
+Delay 5
+EarlyReturnNextShot 0
+T
+
+SetBeamTilt $New_P_X $current_BT_Y
+echo $New_P_X $current_BT_Y
+Delay 5
+EarlyReturnNextShot 0
+T
+
+SetBeamTilt $current_BT_X $New_M_Y
+echo $current_BT_X $New_M_Y
+Delay 5
+EarlyReturnNextShot 0
+T
+
+SetBeamTilt $current_BT_X $New_P_Y
+echo $current_BT_X $New_P_Y
+Delay 5
+EarlyReturnNextShot 0
+T
+
+SetBeamTilt $current_BT_X $current_BT_Y
+echo $current_BT_X $current_BT_Y
+echo beam tilt----- end-----------
+
+endfunction
+
+#-----function reset_stigma_coma------
+Function reset_stigma_coma
+
+echo reset stigma : $OS_ori_X $OS_ori_Y------------reset beam tilt : $current_BT_X $current_BT_Y--------
+SetObjectiveStigmator $OS_ori_X $OS_ori_Y
+SetBeamTilt $current_BT_X $current_BT_Y
+
+EndFunction 

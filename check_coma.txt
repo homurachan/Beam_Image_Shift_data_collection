@@ -1,0 +1,83 @@
+MacroName check_coma
+
+CallFunction check_coma::Z_focus
+
+CallFunction check_coma::coma_adj
+
+
+#-------function Z_focus
+function Z_focus
+target_valuve = -2
+
+#Gotolowdosearea F
+#setstandardFocus 0.0
+
+
+Loop 10
+#     autocenterbeam
+     Autofocus -1
+     reportAutofocus
+    recent_value = $reportedValue1
+    move_value =  -1 * $recent_value + $target_valuve
+   
+    if $move_value < 0
+            if $move_value > -0.2
+                echo --> focus error $move_value micron
+                break
+            endif
+    else
+             if $move_value < 0.2
+                echo --> focus error $move_value micron
+                  break
+             endif
+    endif
+
+    MoveStage 0 0 $move_value
+    echo --> Z moved $move_value micron 
+
+EndLoop
+endfunction
+
+#------function coma_adj----------
+function coma_adj
+wobble = 5
+
+echo beam tilt----- start -----------
+ReportBeamTilt
+current_BT_X = $reportedValue1
+current_BT_Y = $reportedValue2
+
+New_M_X = $current_BT_X - $wobble
+New_P_X = $current_BT_X + $wobble
+New_M_Y = $current_BT_Y - $wobble
+New_P_Y = $current_BT_Y + $wobble
+
+Delay 5
+T
+
+SetBeamTilt $New_P_X $current_BT_Y
+echo $New_P_X $current_BT_Y
+Delay 5
+T
+
+SetBeamTilt $New_M_X $current_BT_Y
+echo $New_M_X $current_BT_Y
+Delay 5
+T
+
+SetBeamTilt $current_BT_X $New_P_Y
+echo $current_BT_X $New_P_Y
+Delay 5
+T
+
+SetBeamTilt $current_BT_X $New_M_Y
+echo $current_BT_X $New_M_Y
+Delay 5
+T
+
+
+
+SetBeamTilt $current_BT_X $current_BT_Y
+echo $current_BT_X $current_BT_Y
+echo beam tilt----- end-----------
+EndFunction 

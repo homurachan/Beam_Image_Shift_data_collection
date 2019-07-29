@@ -1,0 +1,100 @@
+MacroName coma
+
+echo --------Begin coma-free calibration-----------
+
+wobble = 5
+step = 0.5
+
+CallFunction coma::Z_focus
+
+ReportBeamTilt
+ori_X = $ReportedValue1
+ori_Y = $ReportedValue2
+EarlyReturnNextShot 0
+T
+
+index = 4
+Loop 9
+
+     current_X = $ori_X + $step * $index
+     current_Y = $ori_Y
+
+     new_P_X = $current_X + $wobble
+     new_M_X = $current_X - $wobble
+
+     SetBeamTilt $new_P_X $current_Y
+     ReportBeamTilt 
+     Delay 10
+     EarlyReturnNextShot 0
+     T
+
+    SetBeamTilt $new_M_X $current_Y
+    ReportBeamTilt
+    Delay 10
+    EarlyReturnNextShot 0
+    T
+
+   index = $index - 1
+EndLoop 
+
+index = 4
+Loop 9
+
+    current_X = $ori_X 
+    current_Y = $ori_Y + $step * $index
+
+    new_P_Y = $current_Y + $wobble
+    new_M_Y = $current_Y - $wobble
+
+    SetBeamTilt $current_X $new_P_Y
+    ReportBeamTilt
+    Delay 10
+    EarlyReturnNextShot 0
+    T
+
+   SetBeamTilt $current_X $new_M_Y
+   ReportBeamTilt
+   Delay 10
+   EarlyReturnNextShot 0
+   T
+
+   index = $index - 1
+EndLoop 
+
+SetBeamTilt $ori_X $ori_Y
+Delay 10
+EarlyReturnNextShot 0
+T
+
+#-------function Z_focus
+function Z_focus
+target_valuve = -2
+
+#Gotolowdosearea F
+#setstandardFocus 0.0
+
+
+Loop 10
+#     autocenterbeam
+     Autofocus -1
+     reportAutofocus
+    recent_value = $reportedValue1
+    move_value =  -1 * $recent_value + $target_valuve
+   
+    if $move_value < 0
+            if $move_value > -0.2
+                echo --> focus error $move_value micron
+                break
+            endif
+    else
+             if $move_value < 0.2
+                echo --> focus error $move_value micron
+                  break
+             endif
+    endif
+
+    MoveStage 0 0 $move_value
+    echo --> Z moved $move_value micron 
+
+EndLoop
+endfunction

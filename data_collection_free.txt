@@ -1,0 +1,221 @@
+MacroName data_collection_free
+
+#------parameter settings--------
+
+MinDefocus = -1.5
+MaxDefocus = -2.2
+GroupSize = 20
+Step = 10
+
+#-----parameter settings end--------
+
+#---preparation  before data collection----
+ReportObjectiveStigmator
+stigma_ori_X = $reportedValue1
+stigma_ori_Y = $reportedValue2
+
+ReportBeamTilt
+current_coma_ori_X = $reportedValue1
+current_coma_ori_Y = $reportedValue2
+
+echo ori Obj Stigma: $stigma_ori_X $stigma_ori_Y------------------ori Beam Tilt $current_coma_ori_X $current_coma_ori_Y
+
+Loop 10
+    AreDewarsFilling
+    Filling = $reportedValue1
+    If $Filling == 0 
+       Break
+    Endif
+    Delay 2 min
+EndLoop
+
+LongOperation Bu 2
+
+#RealignToNavItem 1
+
+#NormalizeAllLenses 
+#----preparation  before data collection-----
+
+ReportNavItem 
+current_X = $reportedValue2
+current_Y = $reportedValue3
+current_index = $reportedValue1
+current_note = $navNote
+
+Delay 2
+CallFunction data_collection_free::focus_value
+CallFunction data_collection_free::Z_focus
+
+ReportImageShift 
+IS_current_x = $reportedValue1
+IS_current_y = $reportedValue2
+#--------record first point in group--------
+EarlyReturnNextShot 0
+R
+
+#------recrod end------ 
+
+#--------record rest points in group--------
+i = 1
+Loop 50  
+    next_index = $current_index + $i
+    ReportOtherItem $next_index
+     next_X = $reportedValue2
+     next_Y = $reportedValue3
+     next_note = $navNote
+
+    if $next_note == $current_note
+           echo touch next group at $next_index
+          Break 
+    Endif 
+
+    IS_X = $current_X - $next_X
+    IS_Y = $current_Y - $next_Y
+    IS_distance_2 = $IS_X * $IS_X + $IS_Y * $IS_Y
+    IS_distance = SQRT $IS_distance_2
+
+    IS_angle = ATAN2 $IS_Y $IS_X
+    IS_index = 207 - $IS_angle
+
+    echo IS_index $IS_index------IS_distance $IS_distance
+
+    CallFunction data_collection_free::correct_record
+    
+     i = $i + 1
+EndLoop 
+#------recrod end------ 
+
+#-----function focus_value--------
+function focus_value
+    ReportNavItem
+   current_X = $reportedValue2
+   current_Y = $reportedValue3
+   current_Z = $reportedValue4
+
+     TargetIndex = $reportedValue1
+    GroupIndex = $TargetIndex / $GroupSize
+    TargetStep = $GroupIndex
+
+    Loop 10000
+       If $TargetStep < $Step
+           Break
+       Endif
+       TargetStep = $TargetStep - $Step
+    EndLoop
+
+    FocusRange = $MaxDefocus - $MinDefocus
+    TargetDefocus = $MinDefocus + $FocusRange / $Step * $TargetStep
+    Echo TargetDefocus is $TargetDefocus
+EndFunction 
+
+#-------function Z_focus-----------
+function Z_focus
+target_valuve = $TargetDefocus
+SetTargetDefocus $TargetDefocus
+
+Gotolowdosearea F
+setstandardFocus 0.0
+
+G
+G
+
+
+endfunction
+
+#--------function correct_record-------------
+Function correct_record
+
+
+
+#----------set IS---------
+    IS_cosx = cos $IS_index
+    IS_siny = sin $IS_index
+
+     IS_angle_x = $IS_distance * $IS_cosx
+     IS_angle_y = $IS_distance * $IS_siny
+
+     IS_new_x = $IS_angle_x + $IS_current_x
+     IS_new_y = $IS_angle_y + $IS_current_y
+     SetImageShift $IS_new_x $IS_new_y
+     echo when IS 0, IS x $IS_new_x ; IS y $IS_new_y
+
+echo angle $IS_index -------- distance $IS_distance -------- image shift $IS_new_x $IS_new_y------------
+#-------set IS end----------
+#-------set obj stigma--------
+       MOD_angle = MODULO $IS_index 360
+       
+       stigma_Ax = 14.207 * $IS_distance - 0.957
+      stigma_Bx = 13.496 * $IS_distance - 32.773
+
+      stigma_RAx_presin = $IS_index  - 111.297 
+      stigma_RAx_sin = sin $stigma_RAx_presin
+
+      stigma_RBx_presin = 2 * $IS_index  - 175.669
+     stigma_RBx_sin = sin $stigma_RBx_presin
+
+     stigma_Rx = $stigma_Ax * $stigma_RAx_sin + $stigma_Bx * $stigma_RBx_sin - 4.1
+
+          stigma_Ay = 76.452 * $IS_distance - 5.4097
+          stigma_Ry_presin =  $IS_index  - 162.1352
+          stigma_Ry_sin = sin $stigma_Ry_presin
+          stigma_Ry = $stigma_Ay * $stigma_Ry_sin + 5.0174
+
+         stigma_X_adj = $stigma_Rx * 0.00001
+         stigma_Y_adj = $stigma_Ry * 0.00001
+ 
+#        ReportObjectiveStigmator
+#       stigma_ori_X = $reportedValue1
+#       stigma_ori_Y = $reportedValue2
+
+        stigma_X = $stigma_ori_X + $stigma_X_adj
+        stigma_Y = $stigma_ori_Y + $stigma_Y_adj
+
+         SetObjectiveStigmator $stigma_X $stigma_Y
+         echo  SetObjectiveStigmator $stigma_X $stigma_Y
+#-------set obj stigma end--------
+#-------set coma--------
+
+           coma_Ax = 15.454 * $IS_distance + 4.236
+           coma_Rx_presin =  $IS_index  - 110.0262 
+          coma_Rx_sin = sin $coma_Rx_presin
+          coma_Rx = $coma_Ax * $coma_Rx_sin + 0.61841
+          echo coma_Ax $coma_Ax coma_Rx_sin $coma_Rx_sin coma_Rx $coma_Rx
+
+          coma_Ay = 14.895 * $IS_distance + 6.4051
+          coma_Ry_presin =  $IS_index  - 18.12067 
+          coma_Ry_sin = sin $coma_Ry_presin
+          coma_Ry = $coma_Ay * $coma_Ry_sin - 1.72775
+          echo coma_Ay $coma_Ay coma_Ry_sin $coma_Ry_sin coma_Ry $coma_Ry
+
+       
+       coma_X_adj = -1 * $coma_Rx / 63 
+       coma_Y_adj = -1 * $coma_Ry / 67.1
+       
+#        ReportBeamTilt
+#         current_BT_X = $reportedValue1
+#         current_BT_Y = $reportedValue2
+        
+        coma_X = $coma_X_adj + $current_coma_ori_X
+        coma_Y = $coma_Y_adj + $current_coma_ori_Y
+
+        SetBeamTilt $coma_X $coma_Y
+        echo SetBeamTilt $coma_X $coma_Y
+       echo Obj Stigma: $stigma_Rx $stigma_Ry ---------  Beam Tilt  $coma_Rx $coma_Ry
+      echo current Obj Stigma: $stigma_X $stigma_Y------------------current Beam Tilt $coma_X $coma_Y
+ 
+#---------set coma end--------
+delay 2
+#--------record--------
+EarlyReturnNextShot 0
+R
+#V
+
+
+#------recrod end------ 
+
+SetImageShift $IS_current_x $IS_current_y
+SetObjectiveStigmator $stigma_ori_X $stigma_ori_Y
+SetBeamTilt $current_coma_ori_X $current_coma_ori_Y
+echo reset IS :  $IS_current_x $IS_current_y---------Obj Stigma: $stigma_ori_X $stigma_ori_Y--------ori Beam Tilt $current_coma_ori_X $current_coma_ori_Y
+
+endfunction
